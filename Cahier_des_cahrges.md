@@ -1,41 +1,72 @@
-# Cahier des Charges : LLCP (Libre et Local - Compta Personnelle)
+# LLCP (Libre et Locale Compta Personnelle)
 
-## 1. Vision et Objectifs
-Créer une application de comptabilité en partie double, autonome, légère et pérenne. L'outil, nommé **LLCP**, est conçu pour un usage personnel et strictement privé sur ordinateur fixe. Il n'est pas destiné à être publié ni déployé sur un serveur web.
+**LLCP** est une application de comptabilité personnelle en partie double, conçue pour être minimaliste, autonome et parfaitement privée.
 
-## 2. Règles Métier
-* **Structure Comptable :**
-    * **Écriture :** Regroupe les données transactionnelles (ID auto-incrémenté, Date, intitulé, mode de paiement).
-    * **Mouvement :** Unité de base rattachée à une écriture (ID auto-incrémenté, Compte, débit, crédit, libellé complémentaire, lettrage, pointage).
-* **Principe de Partie Double :** Toute écriture doit être équilibrée (somme des débits = somme des crédits).
-* **Gestion des comptes :** Les numéros de compte sont des entiers codés sur 5 chiffres.
-* **Réconciliation :** Chaque mouvement porte ses propres attributs de *lettrage* (état) et de *pointage* (état, numéro d'ordre).
-* **Gestion du Plan Comptable :** Ajout dynamique de comptes via interface dédiée. Suppression autorisée uniquement si le compte ne contient aucun mouvement.
-* **Intégrité :** Validation conditionnelle à l'équilibre comptable. Utilisation d'identifiants uniques auto-incrémentés pour chaque écriture et chaque mouvement afin de garantir la traçabilité.
-* **Confidentialité :** Absence de système de gestion de confidentialité. Les données étant stockées en clair dans un fichier local, la sécurité repose exclusivement sur l'accès physique ou système au fichier.
+## Philosophie
+* **Libre :** Logiciel sous licence GPLv3. Le code source est ouvert et tout projet dérivé doit rester libre, sans aucune restriction d'utilisation.
+* **Local :** Vos données restent sur votre ordinateur. Aucun système de tracking, aucune authentification distante, aucune fuite d'information.
+* **Minimaliste :** Interface utilitaire brute, sans guide utilisateur superflu ni infobulles, pensée pour l'efficacité pure.
 
-## 3. Spécifications Techniques
-* **Format de stockage :** YAML (multi-documents séparés par `---`).
-    * **Version :** Intégration d'un numéro de version dans l'en-tête du fichier pour assurer la gestion de l'évolution du schéma de données.
-* **Accès aux données :** API File System Access (lecture/écriture locale).
-    * **Restriction de compatibilité :** L'application est conçue exclusivement pour les navigateurs supportant l'API File System Access (Chrome, Edge, Opera).
-* **Stratégie de sauvegarde :** Append-only pour les nouvelles écritures, compactage complet à l'ouverture.
-* **Atomicité :** Processus Write-Rename pour garantir la sécurité du fichier.
+## Fonctionnalités principales
+* **Comptabilité en partie double :** Gestion rigoureuse des écritures avec équilibre débit/crédit.
+* **Réconciliation bancaire :** Outils intégrés de pointage et de lettrage par mouvement.
+* **Plan comptable flexible :** Gestion dynamique des comptes (numérotation sur 5 chiffres).
+* **Performance locale :** Conçu pour gérer nativement des volumes importants (plus de 10 000 écritures) via un système de pagination.
+* **Format de données ouvert :** Stockage dans un fichier JSON Lines (JSONL), garantissant une lecture séquentielle rapide, une interopérabilité totale et une lisibilité immédiate par tout éditeur de texte standard.
 
-## 4. Fonctionnalités et Interface
-* **Disposition :**
-    * **Colonne de gauche :** Plan comptable (ajout dynamique via fenêtre flottante).
-    * **Bloc central :**
-        * **En-tête :** Info compte, bouton "Supprimer" (si vide), sélecteurs (Dates, Année), boutons radio (Lettrage/Pointage), Menu déroulant (Mode : Consultation, Pointage, Lettrage).
-        * **Corps :** Tableau des mouvements. Chaque ligne comporte un triangle cliquable pour dérouler l'écriture complète. Tri dynamique par entête.
-        * **Navigation :** Pagination classique (ex: 50 ou 100 lignes par page) pour gérer le volume > 10 000 écritures.
-        * **Pied de page (liste) :** Solde du compte.
-        * **Pied de page (bloc) :** Formulaire libre d'ajout d'écriture (ajout automatique de mouvements par "Enter", autocomplétion par intitulé, validation conditionnelle à l'équilibre).
-* **Réconciliation :** Double-clic sur un mouvement pour alterner lettrage ou incrémenter le pointage. Mise à jour automatique de l'affichage selon le mode.
-* **Ergonomie :** Interface fonctionnelle minimaliste. Absence totale de guide utilisateur intégré ou d'infobulles contextuelles.
-* **Performance :** Support fluide d'un volume > 10 000 écritures via pagination.
+## Architecture des données
+* **Indépendance des modèles :** Le format de persistance (JSONL) est distinct du modèle de données en mémoire.
+* **Source de vérité :** À l'ouverture, l’ordre des lignes dans le fichier fait foi. Les occurrences les plus récentes d'un même identifiant prévalent sur les précédentes.
+* **Cycle de vie de la persistance :**
+    * **Ouverture :** Lecture ligne par ligne et chargement en mémoire de l'état consolidé.
+    * **Compaction :** Processus de réécriture complète produisant un instantané cohérent de l’état des données. Cette opération est exécutée après consolidation en memoire, le contenu  en mémoire est transféré sur le disque via une stratégie *write-rename* (écriture dans un fichier temporaire puis remplacement atomique de l'original). Les modifications effectuées ensuite sont enregistrées en append-only à la suite de cet instantané, formant un journal des changements de la session en cours.
+    * **Usage courant :** Ajout *append-only* (chaque nouvelle écriture est ajoutée à la fin du fichier) pour une latence minimale.
+* **Gestion des identifiants :** Lors du chargement, le système détermine la valeur maximale des identifiants existants afin de définir le prochain identifiant à attribuer. Les identifiants déjà présents dans le fichier sont conservés tels quels et ne sont jamais modifiés. Cette approche garantit l’unicité et la stabilité des enregistrements, y compris en cas d’édition manuelle du fichier.
+* **Gestion des suppressions :** La suppression d'une écriture ou d'un compte s'effectue par l'ajout d'une ligne d'annulation portant le même identifiant. Cette ligne, d'un type spécifique, neutralise les occurrences précédentes lors du chargement. L'effacement physique des données obsolètes est exclusivement traité lors de l'opération de compaction.
+* **Validation par schéma :** Chaque ligne JSON est validée à la lecture et à l'écriture par un schéma rigoureux défini dans le code source. Ce schéma garantit la conformité structurelle des objets (types, champs obligatoires, contraintes métier) avant tout traitement.
+* **Versionnement :** Le fichier débute systématiquement par un objet meta indiquant sa version structurelle. Cela permet au parseur d'adapter le traitement des données en cas d'évolution future du format.
 
-## 5. Contraintes de Développement
-* **Technologie :** 100% Client-Side (HTML5, CSS3, JS).
-* **Déploiement :** Fichier unique (`index.html`). Usage local exclusivement (fixe).
-* **Dépendances :** Aucune base de données externe. CDN pour Bootstrap et js-yaml.
+## Exemple de structure de données (JSONL)
+Chaque ligne du fichier est un objet JSON autonome :
+{"type": "meta", "version": 1}
+
+{"type": "compte", "numero": 60600, "intitule": "Marchandises"}
+{"type": "compte", "numero": 51200, "intitule": "Banque"}
+
+{"type": "ecriture",
+ "id": 1,
+ "date": "2026-04-19",
+ "libelle": "Achat fournitures",
+ "mouvements": [
+   {"id": 1, "compte": 60600, "debit": 50, "credit": 0, "lettrage": null, "pointage": null, "detail": ""},
+   {"id": 2, "compte": 51200, "debit": 0, "credit": 50, "lettrage": null, "pointage": null, "detail": ""}
+ ]
+}
+
+{"type": "compte_supprime", "id": 1}
+{"type": "ecriture_supprime", "id": 1}
+
+## Spécifications techniques
+* **100% Client-Side :** Application monocouche (HTML5, CSS3, JS), zéro dépendance externe.
+* **Accès aux données :** Utilisation native de l'API *File System Access* pour une lecture/écriture directe.
+* **Compatibilité :** Nécessite un navigateur supportant l'API *File System Access* (Chromium-based : Chrome, Edge, Brave, Opera).
+* **Atomicité :**
+    * **Phase d'ajoute:**Format JSONL. Une coupure brutale ne corrompt que la ligne en cours d'écriture.
+    * **Phase de compactage:**La stratégie *write-rename* protège l'intégrité des données : aucune corruption possible du fichier original en cas d'interruption. En cas de crash pendant cette phase, un fichier temporaire résiduel peut subsister. À l'ouverture suivante, l'application détecte et supprime automatiquement tout fichier temporaire orphelin avant de procéder à la compaction.
+
+## Mise en œuvre
+* **Prérequis navigateur :** LLCP requiert impérativement un navigateur Chromium-based (Chrome, Edge, Brave, Opera) pour fonctionner. Firefox et Safari ne supportent pas l'API File System Access et ne peuvent pas faire tourner l'application. Ce choix est délibéré et documenté dans "Périmètre exclus".
+1. **Accès :** Ouvrez le fichier `index.html` dans un navigateur compatible (Chromium-based).
+2. **Initialisation :** Au premier lancement, sélectionnez le répertoire de travail via l'invite de l'API *File System Access*.
+3. **Sauvegarde :** Une simple copie du fichier JSONL suffit pour sauvegarder l'intégralité de votre comptabilité. Il peut également être versionné par Git.
+
+## Règles métiers
+* **Intégrité comptable :**
+  * **Compte :** Afin de garantir la fiabilité des comptes, la suppression d'un compte est strictement bloquée si le compte contient des mouvements.
+  * **Ecritures :** Afin de garantir la fiabilité du lettrage et du rapprochement bancaire, la suppression d'une écriture est strictement bloquée si l'un de ses mouvements est lettré ou pointé. L'utilisateur doit préalablement annuler le lettrage ou le pointage pour rendre l'écriture supprimable.
+
+## Maintenance et limites
+* **Validation systématique :** En complément du schéma interne, une routine de contrôle d'intégrité — vérifiant l'équilibre débit/crédit et la cohérence inter-objets — est exécutée automatiquement à l'ouverture du fichier et systématiquement avant chaque opération d'enregistrement sur le disque.
+* **Gestion de la corruption :** Lors du chargement, le parseur vérifie la conformité de chaque ligne par rapport au schéma défini dans le code. Toute ligne invalide est détectée et isolée afin de garantir que l'application ne charge que des données comptablement intègres, tout en permettant à l'utilisateur de corriger manuellement les erreurs de syntaxe.
+* **Périmètre exclus :** LLCP ne gère pas le multi-devises ni l'import automatique de fichiers OFX/QIF. Ces choix garantissent la simplicité et la pérennité du code.
+* **Pérennité :** L'absence de bibliothèques tierces (Zero-Dependency) assure que l'outil restera fonctionnel indéfiniment sans risque d'obsolescence logicielle.
