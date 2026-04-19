@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLCP — Compta Personnelle</title>
+<style>
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  background: #1a1a1a;
+  color: #d0d0d0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Mise en page principale ────────────────────────────────────── */
+#topbar {
+  background: #242424;
+  border-bottom: 1px solid #3c3c3c;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 36px;
+}
+.brand {
+  font-weight: bold;
+  font-size: 14px;
+  color: #c8c8c8;
+  letter-spacing: 3px;
+  margin-right: 8px;
+}
+#tabs {
+  background: #1e1e1e;
+  border-bottom: 1px solid #3c3c3c;
+  display: flex;
+  flex-shrink: 0;
+}
+#content {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px;
+}
+#statusbar {
+  background: #242424;
+  border-top: 1px solid #3c3c3c;
+  padding: 3px 12px;
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #666;
+  flex-shrink: 0;
+  height: 24px;
+  align-items: center;
+}
+
+/* ── Boutons ────────────────────────────────────────────────────── */
+button {
+  background: #2e2e2e;
+  color: #c0c0c0;
+  border: 1px solid #484848;
+  padding: 3px 9px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) { background: #3a3a3a; border-color: #5c5c5c; }
+button:active:not(:disabled) { background: #252525; }
+button:disabled { opacity: 0.35; cursor: default; }
+button.primary { background: #1c3a5c; border-color: #2a6098; color: #8ec8f4; }
+button.primary:hover:not(:disabled) { background: #24497a; }
+button.danger  { color: #b85050; border-color: #582828; }
+button.danger:hover:not(:disabled) { background: #3a1c1c; border-color: #7a3838; }
+
+/* ── Onglets ────────────────────────────────────────────────────── */
+.tab {
+  border: none;
+  border-right: 1px solid #3c3c3c;
+  border-bottom: 2px solid transparent;
+  background: #1e1e1e;
+  color: #777;
+  padding: 7px 20px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.tab:hover:not(.active) { color: #aaa; background: #272727; }
+.tab.active { color: #d0d0d0; border-bottom-color: #4a9ede; background: #2a2a2a; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Barre d'outils ─────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.toolbar input[type=text],
+.toolbar select {
+  background: #242424;
+  color: #c8c8c8;
+  border: 1px solid #484848;
+  padding: 3px 7px;
+  font-family: inherit;
+  font-size: 12px;
+  height: 26px;
+}
+.toolbar input[type=text]:focus,
+.toolbar select:focus { outline: none; border-color: #4a9ede; }
+.spacer { flex: 1; }
+
+/* ── Tableau ────────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  background: #242424;
+  color: #888;
+  text-align: left;
+  padding: 5px 8px;
+  border: 1px solid #3c3c3c;
+  font-weight: normal;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+td {
+  padding: 4px 8px;
+  border-left: 1px solid #2a2a2a;
+  border-right: 1px solid #2a2a2a;
+  border-bottom: 1px solid #2c2c2c;
+  vertical-align: middle;
+}
+tr.row-first td, tr.row-only td { border-top: 1px solid #383838; }
+tr.row-first:hover td, tr.row-only:hover td { background: #232323; }
+tr.row-other td { background: #1d1d1d; color: #888; }
+tr.row-other:hover td { background: #222; }
+tr.row-pointed td { opacity: 0.5; }
+tr.row-pointed td.ctr { opacity: 1; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.ctr { text-align: center; }
+td.actions { text-align: right; white-space: nowrap; }
+td.actions button { padding: 1px 5px; font-size: 11px; margin-left: 3px; }
+
+/* ── Saisie ─────────────────────────────────────────────────────── */
+input[type=text], input[type=date], input[type=number], select {
+  background: #1e1e1e;
+  color: #c8c8c8;
+  border: 1px solid #484848;
+  padding: 4px 7px;
+  font-family: inherit;
+  font-size: 12px;
+}
+input:focus, select:focus { outline: none; border-color: #4a9ede; }
+input[readonly] { color: #777; cursor: default; }
+
+/* ── Modale ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-overlay.hidden { display: none; }
+.modal-box {
+  background: #242424;
+  border: 1px solid #505050;
+  padding: 18px 22px;
+  min-width: 480px;
+  max-width: 740px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #d0d0d0;
+  border-bottom: 1px solid #3c3c3c;
+  padding-bottom: 7px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px 10px;
+  align-items: center;
+}
+.form-label { color: #888; font-size: 12px; text-align: right; }
+.form-grid input, .form-grid select { width: 100%; }
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  border-top: 1px solid #3c3c3c;
+  padding-top: 12px;
+}
+
+/* ── Tableau des lignes d'écriture (dans la modale) ─────────────── */
+#me-lignes-wrap { margin: 10px 0 6px; border: 1px solid #3c3c3c; }
+.lignes-tbl { width: 100%; border-collapse: collapse; }
+.lignes-tbl th {
+  background: #1e1e1e; color: #777; padding: 4px 6px;
+  font-weight: normal; font-size: 11px; border-bottom: 1px solid #3c3c3c;
+}
+.lignes-tbl td { border-bottom: 1px solid #282828; padding: 2px; }
+.lignes-tbl td:last-child { text-align: center; padding: 2px 4px; }
+.lignes-tbl input, .lignes-tbl select {
+  border: none; background: transparent; width: 100%;
+  padding: 3px 5px; color: #c8c8c8; font-size: 12px; font-family: inherit;
+}
+.lignes-tbl input:focus, .lignes-tbl select:focus { background: #1a1a1a; outline: none; }
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #777; }
+.pagination button { padding: 2px 8px; }
+
+/* ── Helpers ────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.text-muted  { color: #666; }
+.text-green  { color: #56a056; }
+.text-red    { color: #b85050; }
+.text-yellow { color: #b08830; }
+.solde-pos  { color: #56a056; }
+.solde-neg  { color: #b85050; }
+.solde-zero { color: #666; }
+
+/* ── Alerte navigateur ──────────────────────────────────────────── */
+#no-fsa {
+  position: fixed; inset: 0; background: #1a1a1a;
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+}
+#no-fsa .box {
+  background: #252525; border: 1px solid #b85050;
+  padding: 32px 44px; max-width: 520px; text-align: center; color: #c0c0c0;
+}
+#no-fsa .box h2 {
+  color: #b85050; font-size: 14px; margin-bottom: 14px;
+  font-weight: normal; text-transform: uppercase; letter-spacing: 2px;
+}
+#no-fsa .box p { font-size: 12px; line-height: 1.7; color: #888; }
+</style>
+</head>
+<body>
+
+<!-- ═══ Alerte : navigateur non compatible ════════════════════════ -->
+<div id="no-fsa" class="hidden">
+  <div class="box">
+    <h2>Navigateur incompatible</h2>
+    <p>
+      LLCP nécessite l'API <em>File System Access</em> pour lire et écrire
+      directement sur le disque local.<br><br>
+      Veuillez utiliser <strong>Google Chrome</strong>,
+      <strong>Microsoft Edge</strong> ou <strong>Opera</strong>
+      (version récente, sur ordinateur).<br><br>
+      Firefox et Safari ne prennent <strong>pas</strong> en charge cette API.
+    </p>
+  </div>
+</div>
+
+<!-- ═══ Application principale ════════════════════════════════════ -->
+<div id="app">
+
+  <header id="topbar">
+    <span class="brand">LLCP</span>
+    <button id="btn-new">Nouveau</button>
+    <button id="btn-open">Ouvrir…</button>
+    <button id="btn-save" disabled>Enregistrer</button>
+    <button id="btn-saveas">Enregistrer sous…</button>
+    <span id="file-name" class="text-muted" style="font-size:11px;margin-left:6px">(aucun fichier)</span>
+    <span id="file-dirty" class="text-yellow hidden" title="Modifications non enregistrées">&nbsp;●</span>
+    <span class="spacer"></span>
+    <span id="balance-global" class="text-muted" style="font-size:11px"></span>
+  </header>
+
+  <nav id="tabs">
+    <button class="tab active" data-tab="journal">Journal</button>
+    <button class="tab" data-tab="comptes">Plan comptable</button>
+    <button class="tab" data-tab="rapprochement">Rapprochement</button>
+  </nav>
+
+  <main id="content">
+
+    <!-- ── Journal ──────────────────────────────────────────────── -->
+    <div id="tab-journal" class="tab-pane active">
+      <div class="toolbar">
+        <button id="j-btn-add" class="primary">+ Nouvelle écriture</button>
+        <input type="text" id="j-search" placeholder="Rechercher…" style="width:220px">
+        <select id="j-filter-compte" style="width:200px">
+          <option value="">Tous les comptes</option>
+        </select>
+        <span class="spacer"></span>
+        <span id="j-stats" class="text-muted"></span>
+      </div>
+      <div id="j-table-wrap"></div>
+      <div class="pagination" id="j-pagination"></div>
+    </div>
+
+    <!-- ── Plan comptable ────────────────────────────────────────── -->
+    <div id="tab-comptes" class="tab-pane">
+      <div class="toolbar">
+        <button id="c-btn-add" class="primary">+ Nouveau compte</button>
+        <input type="text" id="c-search" placeholder="Rechercher…" style="width:220px">
+        <select id="c-filter-type" style="width:160px">
+          <option value="">Tous les types</option>
+          <option value="AC">Actif</option>
+          <option value="PA">Passif</option>
+          <option value="CP">Capitaux propres</option>
+          <option value="CH">Charges</option>
+          <option value="PR">Produits</option>
+        </select>
+        <span class="spacer"></span>
+        <span id="c-stats" class="text-muted"></span>
+      </div>
+      <div id="c-table-wrap"></div>
+    </div>
+
+    <!-- ── Rapprochement ─────────────────────────────────────────── -->
+    <div id="tab-rapprochement" class="tab-pane">
+      <div class="toolbar">
+        <label class="text-muted" style="font-size:12px">Compte :</label>
+        <select id="r-compte" style="width:230px"></select>
+        <label class="text-muted" style="font-size:12px;margin-left:10px">Affichage :</label>
+        <select id="r-filter" style="width:160px">
+          <option value="all">Tous les mouvements</option>
+          <option value="unpointed">Non pointés</option>
+          <option value="pointed">Pointés</option>
+        </select>
+        <span class="spacer"></span>
+        <button id="r-btn-point-sel">Pointer sélection</button>
+        <button id="r-btn-unpoint-sel">Dépointer sélection</button>
+        <span id="r-stats" class="text-muted" style="margin-left:10px"></span>
+      </div>
+      <div id="r-table-wrap"></div>
+    </div>
+
+  </main>
+
+  <footer id="statusbar">
+    <span id="status-msg">Prêt.</span>
+    <span class="spacer"></span>
+    <span id="status-time" class="text-muted"></span>
+  </footer>
+
+</div>
+
+<!-- ═══ Modal : Écriture ══════════════════════════════════════════ -->
+<div id="modal-ecriture" class="modal-overlay hidden">
+  <div class="modal-box" style="min-width:660px">
+    <div class="modal-title" id="me-title">Nouvelle écriture</div>
+    <div class="form-grid">
+      <span class="form-label">Date</span>
+      <input type="date" id="me-date">
+      <span class="form-label">N° pièce</span>
+      <input type="text" id="me-piece" placeholder="FAC-001, VIR-002…">
+      <span class="form-label">Libellé</span>
+      <input type="text" id="me-libelle" placeholder="Description de l'écriture">
+    </div>
+    <div style="margin:13px 0 4px;font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px">
+      Lignes d'écriture
+    </div>
+    <div id="me-lignes-wrap">
+      <table class="lignes-tbl">
+        <thead>
+          <tr>
+            <th style="width:44%">Compte</th>
+            <th style="width:23%">Débit</th>
+            <th style="width:23%">Crédit</th>
+            <th style="width:10%"></th>
+          </tr>
+        </thead>
+        <tbody id="me-lignes-body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:7px">
+      <button id="me-btn-add-ligne" style="font-size:11px">+ Ligne</button>
+      <span id="me-balance" class="text-muted" style="font-size:12px"></span>
+    </div>
+    <div class="modal-footer">
+      <button id="me-btn-cancel">Annuler</button>
+      <button id="me-btn-ok" class="primary">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal : Compte ════════════════════════════════════════════ -->
+<div id="modal-compte" class="modal-overlay hidden">
+  <div class="modal-box" style="min-width:420px">
+    <div class="modal-title" id="mc-title">Nouveau compte</div>
+    <div class="form-grid">
+      <span class="form-label">Numéro (5 chiffres)</span>
+      <input type="text" id="mc-numero" placeholder="ex. 51200" maxlength="5" pattern="[0-9]{5}">
+      <span class="form-label">Intitulé</span>
+      <input type="text" id="mc-intitule" placeholder="Nom du compte">
+      <span class="form-label">Type</span>
+      <select id="mc-type">
+        <option value="AC">Actif (trésorerie, immobilisations…)</option>
+        <option value="PA">Passif (dettes, provisions…)</option>
+        <option value="CP">Capitaux propres</option>
+        <option value="CH">Charges</option>
+        <option value="PR">Produits</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button id="mc-btn-cancel">Annuler</button>
+      <button id="mc-btn-ok" class="primary">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal : Lettrage ══════════════════════════════════════════ -->
+<div id="modal-lettrage" class="modal-overlay hidden">
+  <div class="modal-box" style="min-width:340px;max-width:420px">
+    <div class="modal-title">Lettrage de l'écriture</div>
+    <div class="form-grid">
+      <span class="form-label">Référence</span>
+      <input type="text" id="ml-ref" placeholder="ex. A1, B2, RV-01" maxlength="20">
+    </div>
+    <p style="font-size:11px;color:#666;margin-top:10px;grid-column:1/-1">
+      Laisser vide pour supprimer le lettrage existant.
+    </p>
+    <div class="modal-footer">
+      <button id="ml-btn-cancel">Annuler</button>
+      <button id="ml-btn-ok" class="primary">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal : Confirmation ══════════════════════════════════════ -->
+<div id="modal-confirm" class="modal-overlay hidden">
+  <div class="modal-box" style="min-width:300px;max-width:440px">
+    <div class="modal-title" id="mconf-title">Confirmation</div>
+    <p id="mconf-msg" style="font-size:12px;line-height:1.7;margin-bottom:16px"></p>
+    <div class="modal-footer">
+      <button id="mconf-no">Non</button>
+      <button id="mconf-yes" class="danger">Oui, confirmer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE YAML
+   Sérialiseur / parseur minimaliste pour le format de données LLCP.
+   Pas de dépendance externe. Le sérialiseur produit un format YAML
+   strict et prévisible que le parseur consomme avec précision.
+   ═══════════════════════════════════════════════════════════════ */
+const YAML = (() => {
+
+  /** Sérialise une valeur scalaire en YAML (string, number, bool, null). */
+  function scalar(v) {
+    if (v === null || v === undefined) return 'null';
+    if (typeof v === 'boolean')  return v ? 'true' : 'false';
+    if (typeof v === 'number')   return Number.isInteger(v) ? String(v) : v.toFixed(2);
+    if (typeof v === 'string') {
+      // Guillemets simples si la valeur risque d'être mal interprétée.
+      if (
+        v === '' || v === 'true' || v === 'false' || v === 'null' || v === '~' ||
+        /^[-\d]/.test(v) ||
+        /[:#\[\]{},&*?|<>=!%@`"\\]/.test(v) ||
+        /^\s|\s$/.test(v)
+      ) {
+        return "'" + v.replace(/'/g, "''") + "'";
+      }
+      return v;
+    }
+    return String(v);
+  }
+
+  /**
+   * Sérialise le modèle de données LLCP en YAML structuré.
+   *
+   * Format produit (niveaux d'indentation) :
+   *   0  → clés racines (version, comptes, ecritures)
+   *   2  → éléments de liste comptes / ecritures
+   *   4  → propriétés d'un compte ou d'une écriture
+   *   6  → éléments de la sous-liste lignes
+   *   8  → propriétés d'une ligne
+   */
+  function dump(data) {
+    const L = [];
+    L.push('# LLCP \u2014 Libre et Local Compta Personnelle');
+    L.push('# Format: YAML structur\u00e9 \u2014 ne pas modifier manuellement.');
+    L.push('');
+    L.push('version: ' + (data.version || 1));
+    L.push('');
+    L.push('comptes:');
+    if (!data.comptes || data.comptes.length === 0) {
+      L.push('  []');
+    } else {
+      for (const c of data.comptes) {
+        L.push('  - numero: '   + c.numero);
+        L.push('    intitule: ' + scalar(c.intitule));
+        L.push('    type: '     + scalar(c.type));
+      }
+    }
+    L.push('');
+    L.push('ecritures:');
+    if (!data.ecritures || data.ecritures.length === 0) {
+      L.push('  []');
+    } else {
+      for (const e of data.ecritures) {
+        L.push('  - id: '       + e.id);
+        L.push('    date: '     + scalar(e.date     || ''));
+        L.push('    piece: '    + scalar(e.piece    || ''));
+        L.push('    libelle: '  + scalar(e.libelle  || ''));
+        L.push('    pointe: '   + (e.pointe ? 'true' : 'false'));
+        L.push('    lettrage: ' + scalar(e.lettrage || ''));
+        L.push('    lignes:');
+        for (const l of e.lignes) {
+          L.push('      - compte: ' + l.compte);
+          L.push('        debit: '  + (parseFloat(l.debit)  || 0).toFixed(2));
+          L.push('        credit: ' + (parseFloat(l.credit) || 0).toFixed(2));
+        }
+      }
+    }
+    L.push('');
+    return L.join('\n');
+  }
+
+  /** Parse une valeur scalaire YAML vers le type JS correspondant. */
+  function parseScalar(s) {
+    s = (s || '').trim();
+    if (s === 'true')  return true;
+    if (s === 'false') return false;
+    if (s === 'null' || s === '~' || s === '') return null;
+    if (/^-?\d+$/.test(s))       return parseInt(s, 10);
+    if (/^-?\d+\.\d+$/.test(s))  return parseFloat(s);
+    if (s.startsWith("'") && s.endsWith("'"))
+      return s.slice(1, -1).replace(/''/g, "'");
+    if (s.startsWith('"') && s.endsWith('"')) {
+      try { return JSON.parse(s); } catch (_) { return s.slice(1, -1); }
+    }
+    return s;
+  }
+
+  /**
+   * Parse le YAML produit par dump().
+   * Parseur à machine d'états sur l'indentation.
+   */
+  function load(text) {
+    const data    = { version: 1, comptes: [], ecritures: [] };
+    let section   = null;   // 'comptes' | 'ecritures'
+    let curCompte = null;
+    let curEcr    = null;
+    let inLignes  = false;
+    let curLigne  = null;
+
+    for (const raw of text.split('\n')) {
+      const trimmed = raw.trimEnd();
+      const content = trimmed.trim();
+      if (!content || content.startsWith('#')) continue;
+      const indent = raw.match(/^(\s*)/)[1].length;
+
+      if (indent === 0) {
+        inLignes = false;
+        const m = content.match(/^(\w+):\s*(.*)/);
+        if (!m) continue;
+        if      (m[1] === 'version')   data.version = parseScalar(m[2]);
+        else if (m[1] === 'comptes')   section = 'comptes';
+        else if (m[1] === 'ecritures') section = 'ecritures';
+
+      } else if (indent === 2) {
+        inLignes = false;
+        if (!content.startsWith('- ')) continue;
+        const rest = content.slice(2).trim();
+        const m    = rest.match(/^(\w+):\s*(.*)/);
+        if (section === 'comptes') {
+          curCompte = {};
+          data.comptes.push(curCompte);
+          if (m) curCompte[m[1]] = parseScalar(m[2]);
+        } else if (section === 'ecritures') {
+          curEcr = { lignes: [] };
+          data.ecritures.push(curEcr);
+          if (m) curEcr[m[1]] = parseScalar(m[2]);
+        }
+
+      } else if (indent === 4) {
+        const m = content.match(/^(\w+):\s*(.*)/);
+        if (!m) continue;
+        if (section === 'comptes' && curCompte) {
+          curCompte[m[1]] = parseScalar(m[2]);
+        } else if (section === 'ecritures' && curEcr) {
+          if (m[1] === 'lignes') { inLignes = true; curLigne = null; }
+          else                   { inLignes = false; curEcr[m[1]] = parseScalar(m[2]); }
+        }
+
+      } else if (indent === 6 && inLignes) {
+        if (!content.startsWith('- ')) continue;
+        const rest = content.slice(2).trim();
+        const m    = rest.match(/^(\w+):\s*(.*)/);
+        curLigne = {};
+        if (curEcr) curEcr.lignes.push(curLigne);
+        if (m) curLigne[m[1]] = parseScalar(m[2]);
+
+      } else if (indent === 8 && inLignes && curLigne) {
+        const m = content.match(/^(\w+):\s*(.*)/);
+        if (m) curLigne[m[1]] = parseScalar(m[2]);
+      }
+    }
+    return data;
+  }
+
+  return { dump, load };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTES GLOBALES
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Tolérance de déséquilibre débit/crédit (0,5 centime). */
+const EPSILON = 0.005;
+
+/** Nombre maximum d'écritures affichées par page dans le journal.
+ *  50 est un compromis entre lisibilité et performance DOM. */
+const PAGE_SIZE = 50;
+
+/** Bornes du numérotation de compte (plan comptable à 5 chiffres). */
+const MIN_ACCT_NUM = 10000;
+const MAX_ACCT_NUM = 99999;
+
+/** Retourne la date du jour au format ISO-8601 (YYYY-MM-DD). */
+function getTodayISO() { return new Date().toISOString().slice(0, 10); }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE STATE
+   État global partagé : données, handle fichier, marqueur dirty.
+   ═══════════════════════════════════════════════════════════════ */
+const State = (() => {
+  function _empty() { return { version: 1, comptes: [], ecritures: [] }; }
+
+  let _data   = _empty();
+  let _handle = null;
+  let _dirty  = false;
+  let _nextId = 1;
+
+  function reset() {
+    _data = _empty(); _handle = null; _dirty = false; _nextId = 1;
+    _sync();
+  }
+
+  function loadData(d) {
+    _data   = d;
+    _dirty  = false;
+    _nextId = _data.ecritures.reduce((mx, e) => Math.max(mx, e.id || 0), 0) + 1;
+    _sync();
+  }
+
+  function _sync() {
+    const nameEl  = document.getElementById('file-name');
+    const saveBtn = document.getElementById('btn-save');
+    if (nameEl)  nameEl.textContent  = _handle ? _handle.name : '(aucun fichier)';
+    if (saveBtn) saveBtn.disabled    = !_handle;
+    const dirtyEl = document.getElementById('file-dirty');
+    if (dirtyEl)  dirtyEl.classList.toggle('hidden', !_dirty);
+  }
+
+  function getData()   { return _data;   }
+  function getHandle() { return _handle; }
+
+  function setHandle(h) { _handle = h; _sync(); }
+
+  function setDirty(v = true) { _dirty = v; _sync(); }
+  function isDirty()  { return _dirty; }
+
+  function nextId() { return _nextId++; }
+
+  /** Retourne l'objet compte pour un numéro, ou null. */
+  function getCompte(numero) {
+    return _data.comptes.find(c => c.numero === numero) || null;
+  }
+
+  /** Calcule débit total, crédit total et solde net d'un compte. */
+  function computeSolde(numero) {
+    let d = 0, c = 0;
+    for (const e of _data.ecritures)
+      for (const l of e.lignes)
+        if (l.compte === numero) { d += parseFloat(l.debit) || 0; c += parseFloat(l.credit) || 0; }
+    return { debit: d, credit: c, net: Math.round((d - c) * 100) / 100 };
+  }
+
+  /**
+   * Retourne true si l'écriture est équilibrée
+   * (Σ débit = Σ crédit, avec tolérance EPSILON €, et Σ > 0).
+   */
+  function isBalanced(lignes) {
+    let d = 0, c = 0;
+    for (const l of lignes) { d += parseFloat(l.debit) || 0; c += parseFloat(l.credit) || 0; }
+    return Math.abs(d - c) < EPSILON && d > 0;
+  }
+
+  return { reset, loadData, getData, getHandle, setHandle, setDirty, isDirty, nextId, getCompte, computeSolde, isBalanced };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE IO
+   Accès fichiers via l'API File System Access.
+   createWritable() est atomique par spécification :
+   les octets sont écrits dans un fichier temporaire, puis le
+   fichier cible est remplacé à la fermeture du flux (write-rename).
+   ═══════════════════════════════════════════════════════════════ */
+const IO = (() => {
+  const OPTS = {
+    types: [{ description: 'Fichier LLCP', accept: { 'text/yaml': ['.yaml', '.yml'], 'text/plain': ['.llcp'] } }],
+    excludeAcceptAllOption: false
+  };
+
+  async function openFile() {
+    const [handle] = await window.showOpenFilePicker(OPTS);
+    const text = await (await handle.getFile()).text();
+    State.loadData(YAML.load(text));
+    State.setHandle(handle);
+    setStatus('Fichier ouvert\u00a0: ' + handle.name);
+  }
+
+  async function _write(handle) {
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(YAML.dump(State.getData()));
+      await writable.close();
+    } catch (err) {
+      await writable.abort();
+      throw err;
+    }
+    State.setDirty(false);
+    setStatus('Enregistr\u00e9\u00a0: ' + handle.name + '  \u2014  ' + fmtNow());
+  }
+
+  async function saveFile() {
+    const h = State.getHandle();
+    if (h) await _write(h); else await saveFileAs();
+  }
+
+  async function saveFileAs() {
+    const handle = await window.showSaveFilePicker({ ...OPTS, suggestedName: 'comptabilite.llcp' });
+    State.setHandle(handle);
+    await _write(handle);
+  }
+
+  return { openFile, saveFile, saveFileAs };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITAIRES
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Formate n en euros fr-FR (retourne '—' si zéro). */
+function fmt(n) {
+  if (!n || Math.abs(n) < EPSILON) return '\u2014';
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
+/** Formate n en euros fr-FR (toujours avec 2 décimales). */
+function fmtAmt(n) {
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+}
+
+/** Échappe les entités HTML pour éviter les injections XSS. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Date-heure courante au format fr-FR. */
+function fmtNow() {
+  const d = new Date();
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR');
+}
+
+/** Affiche un message dans la barre de statut. */
+function setStatus(msg, cls) {
+  const el = document.getElementById('status-msg');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = cls || '';
+}
+
+/** Libellé du type de compte. */
+function typeLabel(t) {
+  return { AC: 'Actif', PA: 'Passif', CP: 'Cap.\u00a0propres', CH: 'Charges', PR: 'Produits' }[t] || t;
+}
+
+/**
+ * Solde "normal" selon le type de compte.
+ * Positif = sens habituel (débiteur pour AC/CH, créditeur pour PA/CP/PR).
+ */
+function soldeNormal(type, net) {
+  return ['PA', 'CP', 'PR'].includes(type) ? -net : net;
+}
+
+/** Met à jour l'indicateur de balance globale (barre supérieure). */
+function updateGlobalBalance() {
+  const data = State.getData();
+  let d = 0, c = 0;
+  for (const e of data.ecritures)
+    for (const l of e.lignes) { d += parseFloat(l.debit) || 0; c += parseFloat(l.credit) || 0; }
+  const diff = Math.round((d - c) * 100) / 100;
+  const el   = document.getElementById('balance-global');
+  if (!el) return;
+  if (Math.abs(diff) < EPSILON) {
+    el.textContent = '\u2713\u00a0Grand livre \u00e9quilibr\u00e9';
+    el.className   = 'text-green';
+  } else {
+    el.textContent = '\u26a0\u00a0D\u00e9s\u00e9quilibre\u00a0: ' + fmtAmt(diff) + '\u00a0\u20ac';
+    el.className   = 'text-red';
+  }
+  el.style.fontSize = '11px';
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE MODALES
+   Fenêtre de confirmation générique.
+   ═══════════════════════════════════════════════════════════════ */
+const Modal = (() => {
+  let _cb = null;
+
+  function confirm(title, msg, onYes) {
+    _cb = onYes;
+    document.getElementById('mconf-title').textContent = title;
+    document.getElementById('mconf-msg').textContent   = msg;
+    document.getElementById('modal-confirm').classList.remove('hidden');
+  }
+
+  function _init() {
+    document.getElementById('mconf-yes').addEventListener('click', () => {
+      document.getElementById('modal-confirm').classList.add('hidden');
+      if (_cb) { const f = _cb; _cb = null; f(); }
+    });
+    document.getElementById('mconf-no').addEventListener('click', () => {
+      document.getElementById('modal-confirm').classList.add('hidden');
+      _cb = null;
+    });
+  }
+
+  return { confirm, _init };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE JOURNAL
+   Affichage, filtrage, pagination (PAGE_SIZE lignes/page),
+   et édition des écritures comptables.
+   ═══════════════════════════════════════════════════════════════ */
+const Journal = (() => {
+  let _page   = 1;
+  let _search = '';
+  let _facct  = '';   // numéro de compte pour le filtre ('' = tous)
+  let _editId = null; // id de l'écriture en édition (null = nouvelle)
+
+  /* ── Filtrage & tri ──────────────────────────────────────────── */
+  function _filtered() {
+    let list = [...State.getData().ecritures];
+    if (_facct) {
+      const n = parseInt(_facct);
+      list = list.filter(e => e.lignes.some(l => l.compte === n));
+    }
+    if (_search) {
+      const s = _search.toLowerCase();
+      list = list.filter(e =>
+        (e.date    || '').includes(s) ||
+        (e.piece   || '').toLowerCase().includes(s) ||
+        (e.libelle || '').toLowerCase().includes(s) ||
+        e.lignes.some(l => String(l.compte).includes(s))
+      );
+    }
+    return list.sort((a, b) => {
+      const c = (a.date || '').localeCompare(b.date || '');
+      return c !== 0 ? c : (a.id || 0) - (b.id || 0);
+    });
+  }
+
+  /* ── Rendu du tableau ────────────────────────────────────────── */
+  function render() {
+    const list       = _filtered();
+    const total      = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (_page > totalPages) _page = totalPages;
+    const slice = list.slice((_page - 1) * PAGE_SIZE, _page * PAGE_SIZE);
+
+    document.getElementById('j-stats').textContent =
+      total + ' \u00e9criture' + (total !== 1 ? 's' : '') +
+      (_facct || _search ? ' (filtr\u00e9)' : '');
+
+    const wrap = document.getElementById('j-table-wrap');
+    if (total === 0) {
+      wrap.innerHTML =
+        '<p class="text-muted" style="margin-top:24px;text-align:center">' +
+        (_facct || _search
+          ? 'Aucun r\u00e9sultat. Modifiez le filtre.'
+          : 'Aucune \u00e9criture. Cliquez sur \u00ab\u00a0+\u00a0Nouvelle \u00e9criture\u00a0\u00bb pour commencer.') +
+        '</p>';
+      document.getElementById('j-pagination').innerHTML = '';
+      return;
+    }
+
+    let h = '<table><thead><tr>';
+    h += '<th style="width:88px">Date</th>';
+    h += '<th style="width:90px">Pi\u00e8ce</th>';
+    h += '<th>Libell\u00e9 / Compte</th>';
+    h += '<th style="width:90px" class="num">D\u00e9bit</th>';
+    h += '<th style="width:90px" class="num">Cr\u00e9dit</th>';
+    h += '<th style="width:30px" class="ctr" title="Point\u00e9">\u25cf</th>';
+    h += '<th style="width:80px" class="ctr">Lettrage</th>';
+    h += '<th style="width:76px"></th>';
+    h += '</tr></thead><tbody>';
+
+    for (const e of slice) {
+      const nL = e.lignes.length;
+      for (let li = 0; li < nL; li++) {
+        const l      = e.lignes[li];
+        const cpte   = State.getCompte(l.compte);
+        const first  = li === 0;
+        const only   = nL === 1;
+        const cls    = first ? (only ? 'row-only' : 'row-first') : 'row-other';
+        h += `<tr class="${cls}">`;
+
+        if (first) {
+          h += `<td rowspan="${nL}">${esc(e.date || '')}</td>`;
+          h += `<td rowspan="${nL}">${esc(e.piece || '')}</td>`;
+          h += `<td>${esc(e.libelle || '')}</td>`;
+        } else {
+          h += `<td class="text-muted">&nbsp;&nbsp;${esc(String(l.compte))}\u00a0\u2014\u00a0${esc(cpte ? cpte.intitule : '?')}</td>`;
+        }
+
+        h += `<td class="num">${l.debit  > EPSILON ? fmtAmt(l.debit)  : ''}</td>`;
+        h += `<td class="num">${l.credit > EPSILON ? fmtAmt(l.credit) : ''}</td>`;
+
+        if (first) {
+          h += `<td class="ctr ${e.pointe ? 'text-green' : 'text-muted'}" rowspan="${nL}">${e.pointe ? '\u2713' : ''}</td>`;
+          const ltr = e.lettrage
+            ? `<span style="border:1px solid #555;padding:0 4px;font-size:10px;color:#888">${esc(e.lettrage)}</span>`
+            : '';
+          h += `<td class="ctr" rowspan="${nL}">${ltr}</td>`;
+          h += `<td class="actions" rowspan="${nL}">`;
+          h += `<button onclick="Journal.edit(${e.id})" title="Modifier">\u270e</button>`;
+          h += `<button class="danger" onclick="Journal.del(${e.id})" title="Supprimer">\u2715</button>`;
+          h += '</td>';
+        }
+        h += '</tr>';
+      }
+    }
+    h += '</tbody></table>';
+    wrap.innerHTML = h;
+    _renderPagination(totalPages);
+  }
+
+  function _renderPagination(total) {
+    const pag = document.getElementById('j-pagination');
+    if (total <= 1) { pag.innerHTML = ''; return; }
+    let h = `<button onclick="Journal.goPage(${_page - 1})" ${_page <= 1 ? 'disabled' : ''}>\u25c4</button>`;
+    for (const p of _range(_page, total)) {
+      if (p === '…') h += '<span class="text-muted" style="padding:0 4px">\u2026</span>';
+      else h += `<button onclick="Journal.goPage(${p})" ${p === _page ? 'class="primary"' : ''}>${p}</button>`;
+    }
+    h += `<button onclick="Journal.goPage(${_page + 1})" ${_page >= total ? 'disabled' : ''}>\u25ba</button>`;
+    h += `<span class="text-muted">&nbsp;Page\u00a0${_page}\u00a0/\u00a0${total}</span>`;
+    pag.innerHTML = h;
+  }
+
+  function _range(cur, total) {
+    if (total <= 9) return Array.from({ length: total }, (_, i) => i + 1);
+    const s = new Set([1, 2, cur - 1, cur, cur + 1, total - 1, total]);
+    const a = [...s].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const r = []; let prev = 0;
+    for (const p of a) { if (p - prev > 1) r.push('…'); r.push(p); prev = p; }
+    return r;
+  }
+
+  function goPage(p) {
+    const t = Math.max(1, Math.ceil(_filtered().length / PAGE_SIZE));
+    _page = Math.max(1, Math.min(p, t));
+    render();
+  }
+
+  function setSearch(s) { _search = s; _page = 1; render(); }
+  function setFAcct(v)  { _facct  = v; _page = 1; render(); }
+  function resetPage()  { _page   = 1; }
+
+  /* ── Sélecteur de filtre par compte ─────────────────────────── */
+  function refreshCompteFilter() {
+    const sel = document.getElementById('j-filter-compte');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Tous les comptes</option>';
+    const nums = new Set();
+    for (const e of State.getData().ecritures) for (const l of e.lignes) nums.add(l.compte);
+    for (const n of [...nums].sort((a, b) => a - b)) {
+      const c = State.getCompte(n);
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n + (c ? ' \u2014 ' + c.intitule : '');
+      if (String(n) === cur) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  /* ── Modal écriture : ouverture ──────────────────────────────── */
+  function openModal(ecriture) {
+    _editId = ecriture ? ecriture.id : null;
+    const today = getTodayISO();
+    document.getElementById('me-title').textContent =
+      ecriture ? 'Modifier l\u2019\u00e9criture\u00a0#' + ecriture.id : 'Nouvelle \u00e9criture';
+    document.getElementById('me-date').value    = ecriture ? (ecriture.date    || today) : today;
+    document.getElementById('me-piece').value   = ecriture ? (ecriture.piece   || '')    : '';
+    document.getElementById('me-libelle').value = ecriture ? (ecriture.libelle || '')    : '';
+
+    const tbody  = document.getElementById('me-lignes-body');
+    tbody.innerHTML = '';
+    const lignes = ecriture ? ecriture.lignes
+      : [{ compte: null, debit: 0, credit: 0 }, { compte: null, debit: 0, credit: 0 }];
+    for (const l of lignes) addLignRow(l);
+
+    updateBalance();
+    document.getElementById('modal-ecriture').classList.remove('hidden');
+    document.getElementById('me-date').focus();
+  }
+
+  /* ── Modal écriture : ajout d'une ligne ──────────────────────── */
+  function addLignRow(ligne) {
+    ligne = ligne || { compte: null, debit: 0, credit: 0 };
+    const comptes = State.getData().comptes.slice().sort((a, b) => a.numero - b.numero);
+    const opts    = comptes.map(c =>
+      `<option value="${c.numero}" ${c.numero === ligne.compte ? 'selected' : ''}>${esc(String(c.numero))} \u2014 ${esc(c.intitule)}</option>`
+    ).join('');
+
+    const tbody = document.getElementById('me-lignes-body');
+    const tr    = document.createElement('tr');
+    tr.innerHTML = `
+      <td><select class="ligne-compte">
+        <option value="">\u2014 Choisir un compte \u2014</option>${opts}
+      </select></td>
+      <td><input type="number" class="ligne-debit"
+        value="${ligne.debit > 0 ? ligne.debit.toFixed(2) : ''}"
+        min="0" step="0.01" placeholder="0.00"></td>
+      <td><input type="number" class="ligne-credit"
+        value="${ligne.credit > 0 ? ligne.credit.toFixed(2) : ''}"
+        min="0" step="0.01" placeholder="0.00"></td>
+      <td><button onclick="this.closest('tr').remove();Journal.updateBalance()"
+        title="Supprimer" style="padding:1px 6px;font-size:11px">\u2715</button></td>`;
+    tr.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateBalance));
+    tbody.appendChild(tr);
+  }
+
+  /* ── Modal écriture : calcul du solde ────────────────────────── */
+  function updateBalance() {
+    let d = 0, c = 0;
+    for (const tr of document.getElementById('me-lignes-body').rows) {
+      d += parseFloat(tr.querySelector('.ligne-debit')?.value)  || 0;
+      c += parseFloat(tr.querySelector('.ligne-credit')?.value) || 0;
+    }
+    const diff = Math.round((d - c) * 100) / 100;
+    const el   = document.getElementById('me-balance');
+    if (d === 0 && c === 0) {
+      el.textContent = 'Aucun montant saisi.'; el.className = 'text-muted';
+    } else if (Math.abs(diff) < EPSILON) {
+      el.textContent = '\u2713\u00a0\u00c9quilibr\u00e9e\u00a0\u2014\u00a0' + fmtAmt(d) + '\u00a0\u20ac';
+      el.className   = 'text-green';
+    } else {
+      el.textContent = '\u26a0\u00a0D\u00e9s\u00e9quilibre\u00a0: ' + fmtAmt(Math.abs(diff)) +
+                       '\u00a0\u20ac\u00a0(D\u00a0' + fmtAmt(d) + '\u00a0/\u00a0C\u00a0' + fmtAmt(c) + ')';
+      el.className   = 'text-red';
+    }
+  }
+
+  /* ── Modal écriture : validation et enregistrement ────────────── */
+  function saveModal() {
+    const date    = document.getElementById('me-date').value.trim();
+    const piece   = document.getElementById('me-piece').value.trim();
+    const libelle = document.getElementById('me-libelle').value.trim();
+
+    const tbody  = document.getElementById('me-lignes-body');
+    const lignes = [];
+    for (const tr of tbody.rows) {
+      const compte = parseInt(tr.querySelector('.ligne-compte')?.value);
+      const debit  = parseFloat(tr.querySelector('.ligne-debit')?.value)  || 0;
+      const credit = parseFloat(tr.querySelector('.ligne-credit')?.value) || 0;
+      if (!compte) continue;
+      lignes.push({ compte, debit, credit });
+    }
+
+    if (!date)             { alert('La date est obligatoire.');                                     return; }
+    if (lignes.length < 2) { alert('Une \u00e9criture doit comporter au moins 2 lignes.');          return; }
+    if (!State.isBalanced(lignes)) {
+      alert('L\u2019\u00e9criture n\u2019est pas \u00e9quilibr\u00e9e (total d\u00e9bit \u2260 total cr\u00e9dit).');
+      return;
+    }
+
+    const data = State.getData();
+    if (_editId !== null) {
+      const idx = data.ecritures.findIndex(e => e.id === _editId);
+      if (idx >= 0) {
+        const p = data.ecritures[idx];
+        data.ecritures[idx] = { id: p.id, date, piece, libelle, pointe: p.pointe, lettrage: p.lettrage || '', lignes };
+      }
+    } else {
+      data.ecritures.push({ id: State.nextId(), date, piece, libelle, pointe: false, lettrage: '', lignes });
+    }
+
+    State.setDirty();
+    document.getElementById('modal-ecriture').classList.add('hidden');
+    render();
+    refreshCompteFilter();
+    updateGlobalBalance();
+    Rapprochement.refreshCompteSelector();
+    setStatus(_editId !== null ? '\u00c9criture modifi\u00e9e.' : '\u00c9criture ajout\u00e9e.');
+  }
+
+  /* ── API publique ────────────────────────────────────────────── */
+  function add()  { openModal(null); }
+  function edit(id) {
+    const e = State.getData().ecritures.find(x => x.id === id);
+    if (e) openModal(e);
+  }
+  function del(id) {
+    Modal.confirm(
+      'Supprimer l\u2019\u00e9criture',
+      'Supprimer d\u00e9finitivement l\u2019\u00e9criture\u00a0#' + id + '\u00a0? Cette action est irr\u00e9versible.',
+      () => {
+        const data = State.getData();
+        data.ecritures = data.ecritures.filter(e => e.id !== id);
+        State.setDirty();
+        render();
+        refreshCompteFilter();
+        updateGlobalBalance();
+        Rapprochement.refreshCompteSelector();
+        setStatus('\u00c9criture\u00a0#' + id + ' supprim\u00e9e.');
+      }
+    );
+  }
+
+  return { render, goPage, setSearch, setFAcct, resetPage, refreshCompteFilter, add, edit, del, addLignRow, updateBalance, saveModal };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE COMPTES
+   Affichage et gestion du plan comptable (numérotation 5 chiffres).
+   ═══════════════════════════════════════════════════════════════ */
+const Comptes = (() => {
+  let _search  = '';
+  let _ftype   = '';
+  let _editNum = null;
+
+  function _filtered() {
+    let list = [...State.getData().comptes];
+    if (_ftype)  list = list.filter(c => c.type === _ftype);
+    if (_search) {
+      const s = _search.toLowerCase();
+      list = list.filter(c => String(c.numero).includes(s) || (c.intitule || '').toLowerCase().includes(s));
+    }
+    return list.sort((a, b) => a.numero - b.numero);
+  }
+
+  function render() {
+    const list  = _filtered();
+    const total = list.length;
+    document.getElementById('c-stats').textContent =
+      total + ' compte' + (total !== 1 ? 's' : '') + (_ftype || _search ? ' (filtr\u00e9)' : '');
+
+    const wrap = document.getElementById('c-table-wrap');
+    if (total === 0) {
+      wrap.innerHTML =
+        '<p class="text-muted" style="margin-top:24px;text-align:center">' +
+        (_ftype || _search
+          ? 'Aucun r\u00e9sultat. Modifiez le filtre.'
+          : 'Aucun compte. Cliquez sur \u00ab\u00a0+\u00a0Nouveau compte\u00a0\u00bb.') +
+        '</p>';
+      return;
+    }
+
+    let h = '<table><thead><tr>';
+    h += '<th style="width:80px">N\u00b0</th>';
+    h += '<th>Intitul\u00e9</th>';
+    h += '<th style="width:120px">Type</th>';
+    h += '<th style="width:100px" class="num">D\u00e9bit total</th>';
+    h += '<th style="width:100px" class="num">Cr\u00e9dit total</th>';
+    h += '<th style="width:90px" class="num">Solde net</th>';
+    h += '<th style="width:80px"></th>';
+    h += '</tr></thead><tbody>';
+
+    for (const c of list) {
+      const s  = State.computeSolde(c.numero);
+      const sn = soldeNormal(c.type, s.net);
+      const nc = Math.abs(s.net) > EPSILON ? (sn >= 0 ? 'solde-pos' : 'solde-neg') : 'solde-zero';
+      h += '<tr>';
+      h += `<td><strong>${c.numero}</strong></td>`;
+      h += `<td>${esc(c.intitule)}</td>`;
+      h += `<td class="text-muted">${typeLabel(c.type)}</td>`;
+      h += `<td class="num">${s.debit  > EPSILON ? fmtAmt(s.debit)  : '\u2014'}</td>`;
+      h += `<td class="num">${s.credit > EPSILON ? fmtAmt(s.credit) : '\u2014'}</td>`;
+      h += `<td class="num ${nc}">${Math.abs(s.net) > EPSILON ? fmtAmt(s.net) : '\u2014'}</td>`;
+      h += `<td class="actions">`;
+      h += `<button onclick="Comptes.edit(${c.numero})" title="Modifier">\u270e</button>`;
+      h += `<button class="danger" onclick="Comptes.del(${c.numero})" title="Supprimer">\u2715</button>`;
+      h += '</td></tr>';
+    }
+    h += '</tbody></table>';
+    wrap.innerHTML = h;
+  }
+
+  /* ── Modal compte ────────────────────────────────────────────── */
+  function openModal(compte) {
+    _editNum = compte ? compte.numero : null;
+    document.getElementById('mc-title').textContent =
+      compte ? 'Modifier le compte\u00a0' + compte.numero : 'Nouveau compte';
+    const numEl = document.getElementById('mc-numero');
+    numEl.value    = compte ? compte.numero : '';
+    numEl.readOnly = !!compte;
+    document.getElementById('mc-intitule').value = compte ? compte.intitule : '';
+    document.getElementById('mc-type').value     = compte ? compte.type     : 'AC';
+    document.getElementById('modal-compte').classList.remove('hidden');
+    document.getElementById(compte ? 'mc-intitule' : 'mc-numero').focus();
+  }
+
+  function saveModal() {
+    const numero   = parseInt(document.getElementById('mc-numero').value);
+    const intitule = document.getElementById('mc-intitule').value.trim();
+    const type     = document.getElementById('mc-type').value;
+
+    if (!numero || numero < MIN_ACCT_NUM || numero > MAX_ACCT_NUM) {
+      alert('Le num\u00e9ro doit \u00eatre un entier \u00e0 5 chiffres (' + MIN_ACCT_NUM + '\u2009\u2013\u2009' + MAX_ACCT_NUM + ').');
+      return;
+    }
+    if (!intitule) { alert('L\u2019intitul\u00e9 est obligatoire.'); return; }
+
+    const data     = State.getData();
+    const existing = data.comptes.find(c => c.numero === numero);
+    if (_editNum === null) {
+      if (existing) { alert('Un compte avec ce num\u00e9ro existe d\u00e9j\u00e0.'); return; }
+      data.comptes.push({ numero, intitule, type });
+      setStatus('Compte\u00a0' + numero + ' cr\u00e9\u00e9.');
+    } else {
+      if (existing) { existing.intitule = intitule; existing.type = type; }
+      setStatus('Compte\u00a0' + numero + ' modifi\u00e9.');
+    }
+    State.setDirty();
+    document.getElementById('modal-compte').classList.add('hidden');
+    render();
+    Journal.refreshCompteFilter();
+    Rapprochement.refreshCompteSelector();
+  }
+
+  function add()        { openModal(null); }
+  function edit(numero) { const c = State.getCompte(numero); if (c) openModal(c); }
+  function del(numero) {
+    const data = State.getData();
+    const used = data.ecritures.some(e => e.lignes.some(l => l.compte === numero));
+    if (used) {
+      alert('Impossible de supprimer le compte\u00a0' + numero + '\u00a0: il est utilis\u00e9 dans des \u00e9critures.');
+      return;
+    }
+    Modal.confirm(
+      'Supprimer le compte',
+      'Supprimer d\u00e9finitivement le compte\u00a0' + numero + '\u00a0? Cette action est irr\u00e9versible.',
+      () => {
+        data.comptes = data.comptes.filter(c => c.numero !== numero);
+        State.setDirty();
+        render();
+        Journal.refreshCompteFilter();
+        Rapprochement.refreshCompteSelector();
+        setStatus('Compte\u00a0' + numero + ' supprim\u00e9.');
+      }
+    );
+  }
+
+  function setSearch(s) { _search = s; render(); }
+  function setFType(v)  { _ftype  = v; render(); }
+
+  return { render, add, edit, del, setSearch, setFType, saveModal };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODULE RAPPROCHEMENT
+   Pointage (cochage) et lettrage des mouvements par compte.
+   ═══════════════════════════════════════════════════════════════ */
+const Rapprochement = (() => {
+  let _compte = null;   // numéro de compte sélectionné
+  let _filter = 'all';  // 'all' | 'pointed' | 'unpointed'
+  let _letId  = null;   // id de l'écriture en cours de lettrage
+
+  /* ── Sélecteur de compte ─────────────────────────────────────── */
+  function refreshCompteSelector() {
+    const data = State.getData();
+    const sel  = document.getElementById('r-compte');
+    const prev = sel.value ? parseInt(sel.value) : null;
+    sel.innerHTML = '<option value="">\u2014 Choisir un compte \u2014</option>';
+    const nums = new Set();
+    for (const e of data.ecritures) for (const l of e.lignes) nums.add(l.compte);
+    for (const n of [...nums].sort((a, b) => a - b)) {
+      const c = State.getCompte(n);
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n + (c ? ' \u2014 ' + c.intitule : '');
+      if (n === prev) o.selected = true;
+      sel.appendChild(o);
+    }
+    if (prev && nums.has(prev)) _compte = prev;
+    else if (nums.size) { _compte = [...nums].sort((a,b) => a-b)[0]; if (sel.value === '') sel.value = _compte; }
+    else _compte = null;
+  }
+
+  function _getMouvements() {
+    const rows = [];
+    for (const e of State.getData().ecritures) {
+      for (const l of e.lignes) {
+        if (l.compte !== _compte) continue;
+        if (_filter === 'pointed'   && !e.pointe) continue;
+        if (_filter === 'unpointed' &&  e.pointe) continue;
+        rows.push({ e, l });
+      }
+    }
+    return rows.sort((a, b) => {
+      const c = (a.e.date || '').localeCompare(b.e.date || '');
+      return c !== 0 ? c : a.e.id - b.e.id;
+    });
+  }
+
+  /* ── Rendu ─────────────────────────────────────────────────────  */
+  function render() {
+    const wrap = document.getElementById('r-table-wrap');
+    if (!_compte) {
+      wrap.innerHTML = '<p class="text-muted" style="margin-top:24px;text-align:center">S\u00e9lectionnez un compte ci-dessus.</p>';
+      document.getElementById('r-stats').textContent = '';
+      return;
+    }
+
+    const rows = _getMouvements();
+    const total = rows.length;
+    let sumD = 0, sumC = 0, ptd = 0, ptc = 0;
+    let pointed = 0;
+    for (const { e, l } of rows) {
+      const d = parseFloat(l.debit) || 0, c = parseFloat(l.credit) || 0;
+      sumD += d; sumC += c;
+      if (e.pointe) { pointed++; ptd += d; ptc += c; }
+    }
+    const unpointed = total - pointed;
+    document.getElementById('r-stats').textContent =
+      total + ' mouvement' + (total !== 1 ? 's' : '') +
+      '\u00a0\u00b7\u00a0' + pointed + ' point\u00e9' + (pointed !== 1 ? 's' : '') +
+      '\u00a0\u00b7\u00a0' + unpointed + ' non point\u00e9' + (unpointed !== 1 ? 's' : '');
+
+    if (total === 0) {
+      wrap.innerHTML = '<p class="text-muted" style="margin-top:24px;text-align:center">Aucun mouvement' +
+        (_filter !== 'all' ? ' avec ce filtre' : '') + '.</p>';
+      return;
+    }
+
+    let h = '<table><thead><tr>';
+    h += '<th style="width:28px"><input type="checkbox" id="r-chk-all" title="Tout s\u00e9lectionner"></th>';
+    h += '<th style="width:88px">Date</th>';
+    h += '<th style="width:88px">Pi\u00e8ce</th>';
+    h += '<th>Libell\u00e9</th>';
+    h += '<th style="width:88px" class="num">D\u00e9bit</th>';
+    h += '<th style="width:88px" class="num">Cr\u00e9dit</th>';
+    h += '<th style="width:88px" class="num">Solde cumul\u00e9</th>';
+    h += '<th style="width:30px" class="ctr" title="Point\u00e9">\u25cf</th>';
+    h += '<th style="width:88px" class="ctr">Lettrage</th>';
+    h += '</tr></thead><tbody>';
+
+    let cumul = 0;
+    for (const { e, l } of rows) {
+      const d = parseFloat(l.debit) || 0, c = parseFloat(l.credit) || 0;
+      cumul = Math.round((cumul + d - c) * 100) / 100;
+      const cc = cumul > EPSILON ? 'solde-pos' : (cumul < -EPSILON ? 'solde-neg' : 'solde-zero');
+      const ltr = e.lettrage
+        ? `<span style="border:1px solid #555;padding:0 4px;font-size:10px;color:#888">${esc(e.lettrage)}</span>`
+        : '<span class="text-muted" style="font-size:10px">\u2014</span>';
+      h += `<tr class="${e.pointe ? 'row-pointed' : ''}" data-id="${e.id}">`;
+      h += `<td class="ctr"><input type="checkbox" class="r-chk" data-id="${e.id}" ${e.pointe ? 'checked' : ''}></td>`;
+      h += `<td>${esc(e.date  || '')}</td>`;
+      h += `<td>${esc(e.piece || '')}</td>`;
+      h += `<td>${esc(e.libelle || '')}</td>`;
+      h += `<td class="num">${d > EPSILON ? fmtAmt(d) : ''}</td>`;
+      h += `<td class="num">${c > EPSILON ? fmtAmt(c) : ''}</td>`;
+      h += `<td class="num ${cc}">${fmtAmt(cumul)}</td>`;
+      h += `<td class="ctr ${e.pointe ? 'text-green' : 'text-muted'}">${e.pointe ? '\u2713' : ''}</td>`;
+      h += `<td class="ctr" style="cursor:pointer" onclick="Rapprochement.editLettrage(${e.id})" title="Lettrage">${ltr}</td>`;
+      h += '</tr>';
+    }
+
+    /* Ligne de totaux */
+    const netTotal = Math.round((sumD - sumC) * 100) / 100;
+    const ntc = netTotal > EPSILON ? 'solde-pos' : (netTotal < -EPSILON ? 'solde-neg' : 'solde-zero');
+    h += `<tr style="background:#202020;border-top:1px solid #3c3c3c">`;
+    h += `<td colspan="4" style="text-align:right;color:#666;font-size:11px">Totaux</td>`;
+    h += `<td class="num" style="color:#888">${fmtAmt(sumD)}</td>`;
+    h += `<td class="num" style="color:#888">${fmtAmt(sumC)}</td>`;
+    h += `<td class="num ${ntc}">${fmtAmt(netTotal)}</td>`;
+    h += `<td colspan="2"></td></tr>`;
+
+    if (_filter !== 'unpointed' && pointed > 0) {
+      const ptNet = Math.round((ptd - ptc) * 100) / 100;
+      const pntc  = ptNet > EPSILON ? 'solde-pos' : (ptNet < -EPSILON ? 'solde-neg' : 'solde-zero');
+      h += `<tr style="background:#1e1e1e">`;
+      h += `<td colspan="4" style="text-align:right;color:#666;font-size:11px">Point\u00e9s</td>`;
+      h += `<td class="num text-muted">${fmtAmt(ptd)}</td>`;
+      h += `<td class="num text-muted">${fmtAmt(ptc)}</td>`;
+      h += `<td class="num ${pntc}">${fmtAmt(ptNet)}</td>`;
+      h += `<td colspan="2"></td></tr>`;
+    }
+
+    h += '</tbody></table>';
+    wrap.innerHTML = h;
+
+    /* Checkbox "tout sélectionner" */
+    document.getElementById('r-chk-all').addEventListener('change', ev => {
+      document.querySelectorAll('.r-chk').forEach(cb => { cb.checked = ev.target.checked; });
+    });
+
+    /* Mise à jour du pointage au changement d'une case */
+    document.querySelectorAll('.r-chk').forEach(cb => {
+      cb.addEventListener('change', ev => {
+        _togglePointe(parseInt(ev.target.dataset.id), ev.target.checked);
+      });
+    });
+  }
+
+  function _togglePointe(id, val) {
+    const e = State.getData().ecritures.find(x => x.id === id);
+    if (!e) return;
+    e.pointe = val;
+    State.setDirty();
+    render();
+    Journal.render();
+    setStatus('\u00c9criture\u00a0#' + id + (val ? ' point\u00e9e.' : ' d\u00e9point\u00e9e.'));
+  }
+
+  function bulkPointe(val) {
+    const ids = [...document.querySelectorAll('.r-chk:checked')].map(cb => parseInt(cb.dataset.id));
+    if (!ids.length) { setStatus('Aucune ligne s\u00e9lectionn\u00e9e.'); return; }
+    const data = State.getData();
+    for (const id of ids) { const e = data.ecritures.find(x => x.id === id); if (e) e.pointe = val; }
+    State.setDirty();
+    render();
+    Journal.render();
+    setStatus(ids.length + ' \u00e9criture' + (ids.length > 1 ? 's ' : ' ') +
+              (val ? 'point\u00e9' : 'd\u00e9point\u00e9') + (ids.length > 1 ? 'es.' : 'e.'));
+  }
+
+  /* ── Lettrage ────────────────────────────────────────────────── */
+  function editLettrage(id) {
+    _letId = id;
+    const e = State.getData().ecritures.find(x => x.id === id);
+    document.getElementById('ml-ref').value = e ? (e.lettrage || '') : '';
+    document.getElementById('modal-lettrage').classList.remove('hidden');
+    document.getElementById('ml-ref').focus();
+  }
+
+  function saveLettrage() {
+    const ref = document.getElementById('ml-ref').value.trim();
+    const e   = State.getData().ecritures.find(x => x.id === _letId);
+    if (e) { e.lettrage = ref; State.setDirty(); }
+    document.getElementById('modal-lettrage').classList.add('hidden');
+    render();
+    Journal.render();
+    setStatus('Lettrage mis \u00e0 jour.');
+  }
+
+  function setCompte(v) { _compte = v ? parseInt(v) : null; render(); }
+  function setFilter(v) { _filter = v; render(); }
+
+  return { render, refreshCompteSelector, setCompte, setFilter, editLettrage, saveLettrage, bulkPointe };
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   INITIALISATION
+   ═══════════════════════════════════════════════════════════════ */
+(function init() {
+
+  /* Vérification de la compatibilité File System Access API.
+   * showOpenFilePicker est disponible uniquement dans les navigateurs
+   * Chromium (Chrome, Edge, Opera). Firefox et Safari ne la supportent pas.
+   * En cas d'absence, on affiche une page d'erreur et on arrête. */
+  if (!('showOpenFilePicker' in window)) {
+    document.getElementById('no-fsa').classList.remove('hidden');
+    document.getElementById('app').style.display = 'none';
+    return;
+  }
+
+  /* ── Onglets ───────────────────────────────────────────────────  */
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('tab-' + tab).classList.add('active');
+      if      (tab === 'journal')       Journal.render();
+      else if (tab === 'comptes')       Comptes.render();
+      else if (tab === 'rapprochement') Rapprochement.render();
+    });
+  });
+
+  /* ── Gestion de fichier ────────────────────────────────────────  */
+  function _refreshAll() {
+    Journal.resetPage();
+    Journal.render();
+    Journal.refreshCompteFilter();
+    Comptes.render();
+    Rapprochement.refreshCompteSelector();
+    Rapprochement.render();
+    updateGlobalBalance();
+  }
+
+  document.getElementById('btn-new').addEventListener('click', () => {
+    if (State.isDirty()) {
+      Modal.confirm('Nouveau fichier', 'Des modifications non enregistr\u00e9es seront perdues. Continuer\u00a0?',
+        () => { State.reset(); _refreshAll(); });
+    } else {
+      State.reset(); _refreshAll();
+    }
+  });
+
+  document.getElementById('btn-open').addEventListener('click', async () => {
+    const doOpen = async () => {
+      try {
+        await IO.openFile(); _refreshAll();
+      } catch (err) {
+        if (err.name !== 'AbortError') setStatus('Erreur\u00a0: ' + err.message, 'text-red');
+      }
+    };
+    if (State.isDirty()) Modal.confirm('Ouvrir', 'Des modifications non enregistr\u00e9es seront perdues. Continuer\u00a0?', doOpen);
+    else await doOpen();
+  });
+
+  document.getElementById('btn-save').addEventListener('click', async () => {
+    try { await IO.saveFile(); }
+    catch (err) { if (err.name !== 'AbortError') setStatus('Erreur d\u2019enregistrement\u00a0: ' + err.message, 'text-red'); }
+  });
+
+  document.getElementById('btn-saveas').addEventListener('click', async () => {
+    try { await IO.saveFileAs(); }
+    catch (err) { if (err.name !== 'AbortError') setStatus('Erreur d\u2019enregistrement\u00a0: ' + err.message, 'text-red'); }
+  });
+
+  /* Ctrl+S / Cmd+S */
+  document.addEventListener('keydown', async ev => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
+      ev.preventDefault();
+      try { await IO.saveFile(); } catch (_) {}
+    }
+  });
+
+  /* ── Journal ───────────────────────────────────────────────────  */
+  document.getElementById('j-btn-add').addEventListener('click', Journal.add);
+  document.getElementById('j-search').addEventListener('input',  ev => Journal.setSearch(ev.target.value));
+  document.getElementById('j-filter-compte').addEventListener('change', ev => Journal.setFAcct(ev.target.value));
+
+  document.getElementById('me-btn-add-ligne').addEventListener('click', () => {
+    Journal.addLignRow();
+    Journal.updateBalance();
+  });
+  document.getElementById('me-btn-cancel').addEventListener('click', () => {
+    document.getElementById('modal-ecriture').classList.add('hidden');
+  });
+  document.getElementById('me-btn-ok').addEventListener('click', Journal.saveModal);
+
+  /* ── Plan comptable ────────────────────────────────────────────  */
+  document.getElementById('c-btn-add').addEventListener('click', Comptes.add);
+  document.getElementById('c-search').addEventListener('input', ev => Comptes.setSearch(ev.target.value));
+  document.getElementById('c-filter-type').addEventListener('change', ev => Comptes.setFType(ev.target.value));
+
+  document.getElementById('mc-btn-cancel').addEventListener('click', () => {
+    document.getElementById('modal-compte').classList.add('hidden');
+  });
+  document.getElementById('mc-btn-ok').addEventListener('click', Comptes.saveModal);
+
+  /* ── Rapprochement ─────────────────────────────────────────────  */
+  document.getElementById('r-compte').addEventListener('change', ev => Rapprochement.setCompte(ev.target.value));
+  document.getElementById('r-filter').addEventListener('change', ev => Rapprochement.setFilter(ev.target.value));
+  document.getElementById('r-btn-point-sel').addEventListener('click',   () => Rapprochement.bulkPointe(true));
+  document.getElementById('r-btn-unpoint-sel').addEventListener('click', () => Rapprochement.bulkPointe(false));
+
+  document.getElementById('ml-btn-cancel').addEventListener('click', () => {
+    document.getElementById('modal-lettrage').classList.add('hidden');
+  });
+  document.getElementById('ml-btn-ok').addEventListener('click', Rapprochement.saveLettrage);
+  document.getElementById('ml-ref').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') Rapprochement.saveLettrage();
+  });
+
+  /* ── Confirmation ──────────────────────────────────────────────  */
+  Modal._init();
+
+  /* Fermeture des modales en cliquant sur l'overlay ou Échap */
+  const MODALS = ['modal-ecriture', 'modal-compte', 'modal-lettrage', 'modal-confirm'];
+  MODALS.forEach(id => {
+    document.getElementById(id).addEventListener('click', ev => {
+      if (ev.target === document.getElementById(id))
+        document.getElementById(id).classList.add('hidden');
+    });
+  });
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape')
+      MODALS.forEach(id => document.getElementById(id).classList.add('hidden'));
+  });
+
+  /* ── Rendu initial ─────────────────────────────────────────────  */
+  _refreshAll();
+  setStatus('LLCP pr\u00eat. Ouvrez un fichier ou cr\u00e9ez-en un nouveau.');
+
+})();
+</script>
+</body>
+</html>
